@@ -164,7 +164,6 @@ int CTailCurlPost::tail_read(int fd, char *buf, size_t count)
 
 int UMain(int argc, UChar* argv[])
 {
-	UPrintf(USTR("Hello world!\n"));
 	CTailCurlPost g;
 
 	unsigned count = 10;
@@ -186,7 +185,7 @@ int UMain(int argc, UChar* argv[])
 
 # define FOLLOW_RETRY true
 
-	char* pFileName[] = { "test.txt" };
+	char* pFileName[] = { "/var/log/privoxy.log" };
 
 	fds = static_cast<int*>(malloc(sizeof(fds[0]) * SDW_ARRAY_COUNT(pFileName)));
 	if (fds == nullptr)
