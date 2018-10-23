@@ -12,7 +12,7 @@ public:
 	bool IsFromTop() const;
 	void SetExitcode(n32 a_nExitcode);
 	n32 GetExitcode() const;
-	int CTailCurlPost::tail_read(int fd, char *buf, size_t count);
+	int tail_read(int fd, char *buf, size_t count);
 private:
 	bool m_bFromTop;
 	n32 m_nExitcode;
