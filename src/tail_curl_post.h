@@ -8,14 +8,17 @@ class CTailCurlPost
 public:
 	CTailCurlPost();
 	~CTailCurlPost();
-	void SetFromTop(bool a_bFromTop);
-	bool IsFromTop() const;
-	void SetExitcode(n32 a_nExitcode);
-	n32 GetExitcode() const;
-	int tail_read(int fd, char *buf, size_t count);
+	int GetExitCode() const;
+	void Run();
 private:
+	off_t bbFullFDAction(int a_nSrcFD, int a_nDestFD, off_t a_nSize) const;
+	off_t bbCopyFDSize(int a_nSrcFD, int a_nDestFD, off_t a_nSize) const;
+	int fullRead(int a_nFD, char* a_pBuffer, size_t a_uLength) const;
+	int tailRead(int a_nFD, char* a_pBuffer, size_t a_uCount);
 	bool m_bFromTop;
-	n32 m_nExitcode;
+	int m_nExitCode;
+	char* m_pTailBuffer;
+	int* m_pFD;
 };
 
 #endif	// TAIL_CURL_POST_H_
