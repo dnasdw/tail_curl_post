@@ -1,2 +1,2 @@
-file_name = test.txt
+file_name = /var/log/privoxy.log
 post_url = http://127.0.0.1:80
