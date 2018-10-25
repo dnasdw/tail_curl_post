@@ -59,10 +59,14 @@ void CUrlManager::HttpPost(const string& a_sUrl, const string& a_sData)
 	{
 		return;
 	}
+	curl_slist* pChunk = nullptr;
+	pChunk = curl_slist_append(pChunk, "Content-Type: text/plain");
 	curl_easy_setopt(pCurl, CURLOPT_URL, a_sUrl.c_str());
+	curl_easy_setopt(pCurl, CURLOPT_HTTPHEADER, pChunk);
 	curl_easy_setopt(pCurl, CURLOPT_POSTFIELDS, a_sData.c_str());
 	CURLcode eEasyCode = curl_easy_perform(pCurl);
 	curl_easy_cleanup(pCurl);
+	curl_slist_free_all(pChunk);
 }
 
 void CUrlManager::Cleanup()
