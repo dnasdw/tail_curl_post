@@ -1,4 +1,5 @@
 #include "tail_curl_post.h"
+#include "url_manager.h"
 
 CTailCurlPost::CTailCurlPost()
 	: m_bFromTop(false)
@@ -6,10 +7,12 @@ CTailCurlPost::CTailCurlPost()
 	, m_pTailBuffer(nullptr)
 	, m_pFD(nullptr)
 {
+	CUrlManager::Initialize();
 }
 
 CTailCurlPost::~CTailCurlPost()
 {
+	CUrlManager::Finalize();
 	if (m_pTailBuffer != nullptr)
 	{
 		free(m_pTailBuffer);
@@ -29,14 +32,14 @@ int CTailCurlPost::GetExitCode() const
 
 void CTailCurlPost::Run()
 {
-	char* pFileNames[] = { "/var/log/privoxy.log" };
+	loadConfig();
 	unsigned uCount = 10;
 	unsigned uSleepPeriod = 1;
 	int nHeaderThreshhold = 1;
 #define FOLLOW true
 #define COUNT_BYTES false
 #define FOLLOW_RETRY true
-	m_pFD = static_cast<int*>(malloc(sizeof(m_pFD[0]) * SDW_ARRAY_COUNT(pFileNames)));
+	m_pFD = static_cast<int*>(malloc(sizeof(m_pFD[0]) * m_vFileName.size()));
 	if (m_pFD == nullptr)
 	{
 		printf("out of memory\n");
@@ -46,15 +49,16 @@ void CTailCurlPost::Run()
 	int i = 0;
 	int nFiles = i;
 	do {
-		int nFD = open(pFileNames[i], O_RDONLY, 0666);
+		int nFD = open(m_vFileName[i].c_str(), O_RDONLY, 0666);
 		if (nFD < 0 && !FOLLOW_RETRY)
 		{
 			m_nExitCode = EXIT_FAILURE;
 			continue;
 		}
 		m_pFD[nFiles] = nFD;
-		pFileNames[nFiles++] = pFileNames[i];
-	} while (++i < SDW_ARRAY_COUNT(pFileNames));
+		m_vFileName[nFiles++] = m_vFileName[i];
+	} while (++i < static_cast<int>(m_vFileName.size()));
+	m_vFileName.resize(nFiles);
 	if (nFiles == 0)
 	{
 		printf("no files\n");
@@ -87,7 +91,7 @@ void CTailCurlPost::Run()
 		}
 		if (nFiles > nHeaderThreshhold)
 		{
-			printf(pFormat, pFileNames[i]);
+			printf(pFormat, m_vFileName[i].c_str());
 			pFormat = header_fmt_str;
 		}
 		if (!m_bFromTop)
@@ -227,6 +231,7 @@ void CTailCurlPost::Run()
 		} /* while (tail_read() > 0) */
 		if (!m_bFromTop)
 		{
+			CUrlManager::HttpPost(m_sPostUrl.c_str(), string(m_pTailBuffer, nTailLength));
 			write(fileno(stdout), m_pTailBuffer, nTailLength);
 		}
 	} while (++i < nFiles);
@@ -244,7 +249,7 @@ void CTailCurlPost::Run()
 #endif
 			i = 0;
 			do {
-				const char* pFileName = pFileNames[i];
+				const char* pFileName = m_vFileName[i].c_str();
 				int nFD = m_pFD[i];
 				if (FOLLOW_RETRY)
 				{
@@ -308,10 +313,54 @@ void CTailCurlPost::Run()
 						pFormat = NULL;
 						nPrevFD = nFD;
 					}
+					CUrlManager::HttpPost(m_sPostUrl.c_str(), string(m_pTailBuffer, nRead));
 					write(fileno(stdout), m_pTailBuffer, nRead);
 				}
 			} while (++i < nFiles);
 		} /* while (1) */
+	}
+}
+
+void CTailCurlPost::loadConfig()
+{
+	UString sConfigPath = UGetModuleDirName() + USTR("/tail_curl_post_config.txt");
+	FILE* fp = UFopen(sConfigPath.c_str(), USTR("rb"));
+	if (fp != nullptr)
+	{
+		Fseek(fp, 0, SEEK_END);
+		u32 uSize = static_cast<u32>(Ftell(fp));
+		Fseek(fp, 0, SEEK_SET);
+		char* pTxt = new char[uSize + 1];
+		fread(pTxt, 1, uSize, fp);
+		fclose(fp);
+		pTxt[uSize] = '\0';
+		string sTxt(pTxt);
+		delete[] pTxt;
+		vector<string> vTxt = SplitOf(sTxt, "\r\n");
+		for (vector<string>::const_iterator it = vTxt.begin(); it != vTxt.end(); ++it)
+		{
+			sTxt = Trim(*it);
+			if (!sTxt.empty())
+			{
+				if (!StartWith(sTxt, "//"))
+				{
+					vector<string> vLine = Split(sTxt, "=");
+					if (vLine.size() != 2)
+					{
+						continue;
+					}
+					vLine[0] = Trim(vLine[0]);
+					if (vLine[0] == "file_name")
+					{
+						m_vFileName.push_back(Trim(vLine[1]));
+					}
+					else if (vLine[0] == "post_url")
+					{
+						m_sPostUrl = Trim(vLine[1]);
+					}
+				}
+			}
+		}
 	}
 }
 
