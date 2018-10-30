@@ -22,6 +22,8 @@ private:
 	int m_nExitCode;
 	char* m_pTailBuffer;
 	int* m_pFD;
+	string m_sTailSend;
+	string m_sTailCache;
 };
 
 #endif	// TAIL_CURL_POST_H_

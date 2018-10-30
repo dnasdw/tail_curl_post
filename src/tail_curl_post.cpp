@@ -48,7 +48,8 @@ void CTailCurlPost::Run()
 	}
 	int i = 0;
 	int nFiles = i;
-	do {
+	do
+	{
 		int nFD = open(m_vFileName[i].c_str(), O_RDONLY, 0666);
 		if (nFD < 0 && !FOLLOW_RETRY)
 		{
@@ -82,7 +83,8 @@ void CTailCurlPost::Run()
 #define header_fmt_str "\n==> %s <==\n"
 	const char* pFormat = header_fmt_str + 1; /* skip leading newline in the header on the first output */
 	i = 0;
-	do {
+	do
+	{
 		int nRead = 0;
 		int nFD = m_pFD[i];
 		if (nFD < 0)
@@ -162,7 +164,8 @@ void CTailCurlPost::Run()
 					else
 					{
 						char* pString = pBuffer;
-						do {
+						do
+						{
 							--nWrite;
 							if (*pString++ == '\n' && ++uSeen == uCount)
 							{
@@ -191,7 +194,8 @@ void CTailCurlPost::Run()
 				{
 					int k = nRead;
 					int nNewlinesInBuffer = 0;
-					do { /* count '\n' in last read */
+					do
+					{ /* count '\n' in last read */
 						k--;
 						if (pBuffer[k] == '\n')
 						{
@@ -231,8 +235,32 @@ void CTailCurlPost::Run()
 		} /* while (tail_read() > 0) */
 		if (!m_bFromTop)
 		{
-			CUrlManager::HttpPost(m_sPostUrl.c_str(), string(m_pTailBuffer, nTailLength));
-			write(fileno(stdout), m_pTailBuffer, nTailLength);
+			bool bSend = true;
+			m_sTailCache.append(m_pTailBuffer, nTailLength);
+			if (m_sTailCache[m_sTailCache.size() - 1] == '\n')
+			{
+				m_sTailSend.swap(m_sTailCache);
+				m_sTailCache.clear();
+			}
+			else
+			{
+				string::size_type uPos = m_sTailCache.rfind('\n');
+				if (uPos != string::npos)
+				{
+					m_sTailSend.swap(m_sTailCache);
+					m_sTailCache = m_sTailSend.substr(uPos + 1);
+					m_sTailSend.erase(uPos + 1);
+				}
+				else
+				{
+					bSend = false;
+				}
+			}
+			if (bSend)
+			{
+				CUrlManager::HttpPost(m_sPostUrl.c_str(), m_sTailSend);
+				write(fileno(stdout), m_sTailSend.c_str(), m_sTailSend.size());
+			}
 		}
 	} while (++i < nFiles);
 	int nPrevFD = m_pFD[i - 1];
@@ -248,7 +276,8 @@ void CTailCurlPost::Run()
 			sleep(uSleepPeriod);
 #endif
 			i = 0;
-			do {
+			do
+			{
 				const char* pFileName = m_vFileName[i].c_str();
 				int nFD = m_pFD[i];
 				if (FOLLOW_RETRY)
@@ -313,8 +342,32 @@ void CTailCurlPost::Run()
 						pFormat = NULL;
 						nPrevFD = nFD;
 					}
-					CUrlManager::HttpPost(m_sPostUrl.c_str(), string(m_pTailBuffer, nRead));
-					write(fileno(stdout), m_pTailBuffer, nRead);
+					bool bSend = true;
+					m_sTailCache.append(m_pTailBuffer, nRead);
+					if (m_sTailCache[m_sTailCache.size() - 1] == '\n')
+					{
+						m_sTailSend.swap(m_sTailCache);
+						m_sTailCache.clear();
+					}
+					else
+					{
+						string::size_type uPos = m_sTailCache.rfind('\n');
+						if (uPos != string::npos)
+						{
+							m_sTailSend.swap(m_sTailCache);
+							m_sTailCache = m_sTailSend.substr(uPos + 1);
+							m_sTailSend.erase(uPos + 1);
+						}
+						else
+						{
+							bSend = false;
+						}
+					}
+					if (bSend)
+					{
+						CUrlManager::HttpPost(m_sPostUrl.c_str(), m_sTailSend);
+						write(fileno(stdout), m_sTailSend.c_str(), m_sTailSend.size());
+					}
 				}
 			} while (++i < nFiles);
 		} /* while (1) */
